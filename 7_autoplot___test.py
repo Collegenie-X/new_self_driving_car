@@ -15,22 +15,31 @@ car = YB_Pcb_Car.YB_Pcb_Car()
 def nothing(x):
     pass
 
-# 윈도우 생성
+# 윈도우 생성 (값을 조절하는 부분)
 cv2.namedWindow('Camera Settings')
 
-# 트랙바 생성
+# # 트랙바 생성
 cv2.createTrackbar('Servo 1 Angle', 'Camera Settings', 90, 180, nothing)
 cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
+
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
+
 cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
+cv2.createTrackbar('Up Threshold', 'Camera Settings', 50000, 300000, nothing)
+
 cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
+
 cv2.createTrackbar('Detect Value', 'Camera Settings', 15, 150, nothing)
+
 cv2.createTrackbar('Motor Up Speed', 'Camera Settings', 90, 125, nothing)
 cv2.createTrackbar('Motor Down Speed', 'Camera Settings', 50, 125, nothing)
+
+
 cv2.createTrackbar('R_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('G_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
+
 cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
@@ -48,7 +57,7 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     Process the frame to detect edges and transform perspective.
     """
     # Define region for perspective transformation
-    pts_src = np.float32([[10, 60+ y_value], [310,60+ y_value], [310, 10+y_value], [10, 10+y_value]])
+    pts_src = np.float32([[10, 70+ y_value], [310,70+ y_value], [310, 10+y_value], [10, 10+y_value]])
     pts_dst = np.float32([[0, 240], [320, 240], [320, 0], [0, 0]])
 
     # 사각형 그리기
@@ -77,6 +86,7 @@ def decide_direction(histogram, direction_threshold):
     # 히스토그램을 세 구역으로 나눔
     left = int(np.sum(histogram[:length // 5]))
     right = int(np.sum(histogram[4 * length // 5:]))
+    center = int(np.sum(histogram[2*length//5:4*length // 5]))
 
     print("left:", left)
     print("right:", right)
@@ -86,7 +96,13 @@ def decide_direction(histogram, direction_threshold):
     if abs(right - left) > direction_threshold:
         return "LEFT" if right > left else "RIGHT"
     else:
-        return "UP"
+        if (center > up_threshold) : 
+            
+            car.Car_Back(120, 120)
+            time.sleep(0.5)
+            return "LEFT"
+        else : 
+            return "UP"
 
 
 def control_car(direction, up_speed, down_speed):
@@ -95,11 +111,11 @@ def control_car(direction, up_speed, down_speed):
     """
     print(f"Controlling car: {direction}")
     if direction == "UP":
-        car.Car_Run(up_speed - 35, up_speed - 35)
+        car.Car_Run(up_speed, up_speed)
     elif direction == "LEFT":
-        car.Car_Left(down_speed, up_speed)
+        car.Car_Left(down_speed-10, up_speed+10)
     elif direction == "RIGHT":
-        car.Car_Right(up_speed, down_speed)
+        car.Car_Right(up_speed+10, down_speed-10)
     elif direction == "RANDOM":
         random_direction = random.choice(["LEFT", "RIGHT"])
         control_car(random_direction, up_speed, down_speed)    
@@ -124,6 +140,16 @@ try:
         servo_2_angle = cv2.getTrackbarPos('Servo 2 Angle', 'Camera Settings')
         y_value = cv2.getTrackbarPos('Y Value', 'Camera Settings')
         direction_threshold = cv2.getTrackbarPos('Direction Threshold', 'Camera Settings')
+        up_threshold = cv2.getTrackbarPos('Up Threshold', 'Camera Settings')
+
+        brightness = 70
+        contrast = 70
+        saturation = 70
+        gain = 70
+        detect_value = 70
+        servo_1_angle = 70
+        servo_2_angle = 70
+        direction_threshold = 70
 
         # 카메라 속성 설정
         cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness)
