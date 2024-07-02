@@ -19,7 +19,7 @@ def nothing(x):
 cv2.namedWindow('Camera Settings')
 
 # # 트랙바 생성
-cv2.createTrackbar('Servo 1 Angle', 'Camera Settings', 90, 180, nothing)
+cv2.createTrackbar('Servo 1 Angle', 'Camera Settings',90, 180, nothing)
 cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
 
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
