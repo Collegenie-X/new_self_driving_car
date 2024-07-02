@@ -1,11 +1,12 @@
 import cv2
 import numpy as np
 import time
+import os
 
 def initialize_camera():
     cap = cv2.VideoCapture(0)
-    cap.set(3, 320)  # set Width
-    cap.set(4, 240)  # set Height
+    cap.set(3, 320)  # Set Width
+    cap.set(4, 240)  # Set Height
     cap.set(cv2.CAP_PROP_BRIGHTNESS, 70)
     cap.set(cv2.CAP_PROP_CONTRAST, 70)
     cap.set(cv2.CAP_PROP_SATURATION, 70)
@@ -15,42 +16,48 @@ def initialize_camera():
 def load_cascade(file_name):
     cascade = cv2.CascadeClassifier()
     if not cascade.load(cv2.samples.findFile(file_name)):
-        print('--(!)Error loading cascade')
+        print('--(!)Error loading cascade:', file_name)
         exit(0)
     return cascade
 
 def capture_frame(cap):
     ret, frame = cap.read()
+    if not ret:
+        print('--(!)Error capturing frame')
+        return None
     return frame
 
-def detect_traffic_sign(cascade, frame):
-    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
-    traffic_sign = cascade.detectMultiScale(gray)
-    return traffic_sign, gray
+def detect_object_sign(cascade, frame):
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    object_sign = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
+    return object_sign
 
 def draw_rectangles_and_text(frame, traffic_sign):
     for (x, y, w, h) in traffic_sign:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-        cv2.putText(frame, "Red Traffic Sign", (x - 30, y + 20), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0))
+        cv2.putText(frame, "Red Traffic Sign", (x - 30, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
     return frame
 
 def save_image(frame, count):
+    os.makedirs("./save_images", exist_ok=True)
     file_name = f"./save_images/traffic_{count}.jpg"
-    cv2.imshow(file_name,frame)
     cv2.imwrite(file_name, frame)
     print(f"Image saved: {file_name}")
 
 def main():
     cap = initialize_camera()
-    traffic_cascade = load_cascade('cascade.xml')
+    object_cascade = load_cascade('cascade.xml')
     count = 0
 
     while True:
         frame = capture_frame(cap)
-        traffic_sign, gray = detect_traffic_sign(traffic_cascade, frame)
+        if frame is None:
+            continue
+        
+        object_sign = detect_object_sign(object_cascade, frame)
 
-        if len(traffic_sign) > 0:
-            frame = draw_rectangles_and_text(frame, traffic_sign)
+        if len(object_sign) > 0:
+            frame = draw_rectangles_and_text(frame, object_sign)
 
         cv2.imshow("Frame", frame)
 

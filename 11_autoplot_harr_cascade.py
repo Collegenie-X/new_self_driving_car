@@ -37,13 +37,13 @@ cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
 # Haar Cascade models 경로 설정
 obstacle_cascade_path = 'path_to_obstacle_cascade.xml'
-traffic_light_cascade_path = 'path_to_traffic_light_cascade.xml'
-sign_cascade_path = 'path_to_sign_cascade.xml'
+stop_cascade_path = 'path_to_traffic_light_cascade.xml'
+no_drive_cascade_path = 'path_to_sign_cascade.xml'
 
 # Haar Cascade models 로드
 obstacle_cascade = cv2.CascadeClassifier(obstacle_cascade_path)
-traffic_light_cascade = cv2.CascadeClassifier(traffic_light_cascade_path)
-sign_cascade = cv2.CascadeClassifier(sign_cascade_path)
+stop_cascade = cv2.CascadeClassifier(stop_cascade_path)
+no_drive_cascade = cv2.CascadeClassifier(no_drive_cascade_path)
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
     # 가중치를 0-1 범위로 변환
@@ -115,7 +115,7 @@ def control_car(direction, up_speed, down_speed):
 def rotate_servo(car, servo_id, angle):
     car.Ctrl_Servo(servo_id, angle)
 
-def detect_obstacle(frame, control_signals):
+def detect_obstacle(frame, control_signals, event):
     if obstacle_cascade.empty():
         print("Obstacle cascade not loaded.")
         return
@@ -124,27 +124,29 @@ def detect_obstacle(frame, control_signals):
     for (x, y, w, h) in obstacles:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
     control_signals['obstacle'] = len(obstacles) > 0
+    event.set()
 
-def detect_traffic_light(frame, control_signals):
-    if traffic_light_cascade.empty():
-        print("Traffic light cascade not loaded.")
+def no_drive_sign(frame, control_signals, event):
+    if no_drive_cascade.empty():
+        print("No drive cascade not loaded.")
         return
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    traffic_lights = traffic_light_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    traffic_lights = no_drive_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in traffic_lights:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
-    control_signals['red_light'] = len(traffic_lights) > 0
+    control_signals['no_drive'] = len(traffic_lights) > 0
+    event.set()
 
-def detect_sign(frame, control_signals):
-    if sign_cascade.empty():
+def stop_sign(frame, control_signals, event):
+    if stop_cascade.empty():
         print("Sign cascade not loaded.")
         return
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    signs = sign_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in signs:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-    # Assuming the first detected sign is the one we're interested in
-    control_signals['sign'] = 'O' if signs else 'X'
+    control_signals['stop'] = len(signs) > 0
+    event.set()
 
 try:
     while True:
@@ -184,37 +186,42 @@ try:
         print(f"Histogram: {histogram}")
         direction = decide_direction(histogram, direction_threshold)
         print(f"#### Decided direction ####: {direction}")
-        control_car(direction, motor_up_speed, motor_down_speed)
+        # control_car(direction, motor_up_speed, motor_down_speed)
 
         # Display the processed frame (for debugging)
         cv2.imshow('4_Processed Frame', processed_frame)
 
         # Shared control signals dictionary
-        control_signals = {'obstacle': False, 'red_light': False, 'sign': None}
+        control_signals = {'obstacle': False, 'no_drive': False, 'stop': False}
+
+        # Events for thread completion
+        obstacle_event = threading.Event()
+        no_drive_event = threading.Event()
+        stop_sign_event = threading.Event()
 
         # Create and start threads for detection tasks
-        obstacle_thread = threading.Thread(target=detect_obstacle, args=(frame, control_signals))
-        traffic_light_thread = threading.Thread(target=detect_traffic_light, args=(frame, control_signals))
-        sign_thread = threading.Thread(target=detect_sign, args=(frame, control_signals))
+        detect_obstacle_thread = threading.Thread(target=detect_obstacle, args=(frame, control_signals, obstacle_event))
+        no_drive_sign_thread = threading.Thread(target=no_drive_sign, args=(frame, control_signals, no_drive_event))
+        stop_sign_thread = threading.Thread(target=stop_sign, args=(frame, control_signals, stop_sign_event))
 
-        obstacle_thread.start()
-        traffic_light_thread.start()
-        sign_thread.start()
+        detect_obstacle_thread.start()
+        no_drive_sign_thread.start()
+        stop_sign_thread.start()
 
-        # Wait for threads to finish
-        obstacle_thread.join()
-        traffic_light_thread.join()
-        sign_thread.join()
+        # Wait for threads to signal completion
+        obstacle_event.wait()
+        no_drive_event.wait()
+        stop_sign_event.wait()
 
         # Autonomous driving logic based on detections
         if control_signals['obstacle']:
             print("Obstacle detected! Avoiding...")
-            control_car('LEFT')  # Change to your obstacle avoidance strategy
-        elif control_signals['red_light']:
-            print("Red light detected! Stopping...")
+            control_car('LEFT', motor_up_speed, motor_down_speed)  # Change to your obstacle avoidance strategy
+        elif control_signals['no_drive']:
+            print("No drive sign detected! Stopping...")
             car.Car_Stop()  # Stop the car
-        elif control_signals['sign'] == 'O':
-            print("Sign 'O' detected! Parking...")
+        elif control_signals['stop']:
+            print("Stop sign detected! Stopping...")
             car.Car_Stop()  # Implement your parking strategy
 
         key = cv2.waitKey(30) & 0xff

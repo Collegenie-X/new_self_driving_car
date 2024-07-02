@@ -76,7 +76,7 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     _, binary_frame = cv2.threshold(gray_frame, detect_value, 255, cv2.THRESH_BINARY)
     return binary_frame
 
-def decide_direction(histogram, direction_threshold):
+def decide_direction(histogram, direction_threshold,car,detect_value):
     """
     Decide the driving direction based on histogram.
     """
@@ -96,11 +96,12 @@ def decide_direction(histogram, direction_threshold):
     if abs(right - left) > direction_threshold:
         return "LEFT" if right > left else "RIGHT"
     else:
+        ### 라인 바가 직진으로 LEFT/RIGHT가 구별되지 않는 경우
         if (center > up_threshold) : 
             
-            car.Car_Back(120, 120)
+            car.Car_Stop()
             time.sleep(0.5)
-            return "LEFT"
+            return rotate_servo_and_check_direction(car, detect_value, 33, 33, 33, 10)
         else : 
             return "UP"
 
@@ -122,6 +123,45 @@ def control_car(direction, up_speed, down_speed):
 
 def rotate_servo(car, servo_id, angle):
     car.Ctrl_Servo(servo_id, angle)
+    
+def rotate_servo_and_check_direction(car, detect_value, r_weight, g_weight, b_weight, y_value):
+    """
+    Rotate the servo to check directions and return the best direction.
+    """
+    
+    # 180도 서보모터 동작
+    car.Ctrl_Servo(1, 180)
+    time.sleep(0.5)
+    
+    # 이미지 송출 
+    ret, frame = cap.read()
+    if not ret:
+        print("Failed to read frame from camera.")
+        return "STOP"
+    
+    # 이미지 rect
+    processed_frame = process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value)
+    
+    # 180 Rect (3/5 : 4/5) center 값 가지고 오기
+    histogram_180 = np.sum(processed_frame, axis=0)
+    length = len(histogram_180)
+    center = int(np.sum(histogram[3*length//5: 4*length // 5]))
+    print("histogram_180:",histogram_180)
+    print("180 center length:",center)
+    
+    
+    car.Ctrl_Servo(1, 90)
+    time.sleep(0.5)
+
+    if (center > 100000):
+        car.Car_Left(60, 100)
+        
+    else:
+        car.Car_Right(100, 60)
+        
+    time.sleep(1)    
+    return "UP"
+
 
 try:
     while True:
@@ -142,14 +182,6 @@ try:
         direction_threshold = cv2.getTrackbarPos('Direction Threshold', 'Camera Settings')
         up_threshold = cv2.getTrackbarPos('Up Threshold', 'Camera Settings')
 
-        brightness = 70
-        contrast = 70
-        saturation = 70
-        gain = 70
-        detect_value = 70
-        servo_1_angle = 70
-        servo_2_angle = 70
-        direction_threshold = 70
 
         # 카메라 속성 설정
         cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness)
@@ -168,8 +200,10 @@ try:
 
         processed_frame = process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value)
         histogram = np.sum(processed_frame, axis=0)
+        
+        
         print(f"Histogram: {histogram}")
-        direction = decide_direction(histogram, direction_threshold)
+        direction = decide_direction(histogram, direction_threshold,car,detect_value)
         print(f"#### Decided direction ####: {direction}")
         control_car(direction, motor_up_speed, motor_down_speed)
 
