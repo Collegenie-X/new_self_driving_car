@@ -4,6 +4,7 @@ import YB_Pcb_Car
 import threading
 import time
 import RPi.GPIO as GPIO
+import random
 
 # Camera and car initialization
 cap = cv2.VideoCapture(0)
@@ -69,6 +70,8 @@ def detect_no_drive_bottom(frame, control_signals):
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
         detect_no_drive_top(new_frame, control_signals)
+    else :
+        control_signals['no_drive_bottom'] = False  # 상단 표지��이 없으면 하단 표지��도 없는 것으로 간주
 
 def detect_no_drive_top(frame, control_signals):
     if no_drive_top_cascade.empty():
@@ -77,11 +80,12 @@ def detect_no_drive_top(frame, control_signals):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     no_drive_top = no_drive_top_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     control_signals['no_drive_top'] = len(no_drive_top) > 0
-    if control_signals['no_drive_top']:
-        beep_sound()
+    if control_signals['no_drive_top']:        
         car.Car_Stop()  # 차를 멈춥니다.
+        beep_sound()
     else:
         control_signals['no_drive_bottom'] = False  # 상단 표지판이 없으면 하단 표지판도 없는 것으로 간주
+        control_signals['no_drive_top'] = False
 
 def detect_stop_sign(frame, control_signals):
     if stop_cascade.empty():
@@ -92,6 +96,9 @@ def detect_stop_sign(frame, control_signals):
     control_signals['stop'] = len(stop_signs) > 0
     if control_signals['stop']:
         car.Car_Stop()  # 차를 멈춥니다.
+        time.sleep(0.5)
+    else : 
+        control_signals['stop'] = False
 
 # 자율 주행을 위한 프레임 처리 및 제어 함수
 def weighted_gray(image, r_weight, g_weight, b_weight):
@@ -189,6 +196,8 @@ try:
 
         detect_no_drive_bottom_thread.join()
         detect_stop_sign_thread.join()
+        
+        time.sleep(0.5)
 
         if control_signals['no_drive_bottom'] or control_signals['no_drive_top'] or control_signals['stop']:
             print("Sign detected! Stopping...")
