@@ -14,14 +14,16 @@ while True:
     # Display the frame
     cv2.imshow('Frame', frame)
 
+    # Wait for key press
+    key = cv2.waitKey(1) & 0xFF
+
     # Save the frame when 'a' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('a'):
+    if key == ord('a'):
         cv2.imwrite('captured_image.jpg', frame)
         print("Image saved!")
 
-
     # Break the loop if 'q' is pressed
-    if cv2.waitKey(1) & 0xFF == ord('q'):
+    if key == ord('q'):
         break
 
 # Release the camera
