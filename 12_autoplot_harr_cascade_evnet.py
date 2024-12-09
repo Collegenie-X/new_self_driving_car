@@ -23,34 +23,39 @@ cv2.namedWindow('Camera Settings')
 # 트랙바 생성
 cv2.createTrackbar('Servo 1 Angle', 'Camera Settings', 90, 180, nothing)
 cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
+
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
+
 cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
 cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
 cv2.createTrackbar('Detect Value', 'Camera Settings', 15, 150, nothing)
+
 cv2.createTrackbar('Motor Up Speed', 'Camera Settings', 90, 125, nothing)
 cv2.createTrackbar('Motor Down Speed', 'Camera Settings', 50, 125, nothing)
+
 cv2.createTrackbar('R_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('G_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
+
 cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
 # Haar Cascade models 경로 설정
-no_drive_bottom_cascade_path = 'path_to_no_drive_bottom_cascade.xml'
-no_drive_top_cascade_path = 'path_to_no_drive_top_cascade.xml'
-stop_cascade_path = 'path_to_stop_cascade.xml'
+obstacle_cascade_path = 'path_to_obstacle_cascade.xml'
+stop_cascade_path = 'path_to_traffic_light_cascade.xml'
+no_drive_cascade_path = 'path_to_sign_cascade.xml'
 
 # Haar Cascade models 로드
-no_drive_bottom_cascade = cv2.CascadeClassifier(no_drive_bottom_cascade_path)
-no_drive_top_cascade = cv2.CascadeClassifier(no_drive_top_cascade_path)
+obstacle_cascade = cv2.CascadeClassifier(obstacle_cascade_path)
 stop_cascade = cv2.CascadeClassifier(stop_cascade_path)
+no_drive_cascade = cv2.CascadeClassifier(no_drive_cascade_path)
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
     # 가중치를 0-1 범위로 변환
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= r_weight + g_weight + b_weight
+    g_weight /= r_weight + g_weight + b_weight
+    b_weight /= r_weight + g_weight + b_weight
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
 
 def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
@@ -62,7 +67,7 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     pts_dst = np.float32([[0, 240], [320, 240], [320, 0], [0, 0]])
 
     # 사각형 그리기
-    pts = pts_src.reshape((-1, 1, 2)).astype(np.int32)
+    pts = pts_src.reshape((-1, 1, 2)).astype(np.int32)  # np.float32에서 np.int32로 변경
     frame = cv2.polylines(frame, [pts], isClosed=True, color=(0, 0, 255), thickness=2)
     cv2.imshow('1_Frame', frame)
 
@@ -116,6 +121,48 @@ def control_car(direction, up_speed, down_speed):
 def rotate_servo(car, servo_id, angle):
     car.Ctrl_Servo(servo_id, angle)
 
+def detect_obstacle(frame, control_signals, event):
+    if obstacle_cascade.empty():
+        print("Obstacle cascade not loaded.")
+        return
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
+    obstacles = obstacle_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    for (x, y, w, h) in obstacles:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
+    control_signals['obstacle'] = len(obstacles) > 0
+    if control_signals['obstacle']:
+        rotate_servo(car, 2, 85)  # 서보 모터 2를 85도로 회전하여 카메라 각도 조절
+        time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
+        ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
+        no_drive_sign(new_frame, control_signals)
+    event.set()
+
+def no_drive_sign(frame, control_signals):
+    if no_drive_cascade.empty():
+        print("No drive cascade not loaded.")
+        return
+    gray =  weighted_gray(frame, r_weight, g_weight, b_weight)
+    no_drive_cascade = no_drive_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    for (x, y, w, h) in no_drive_cascade:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
+    control_signals['no_drive'] = len(no_drive_cascade) > 0
+    if control_signals['no_drive']:
+        rotate_servo(car, 2, 75)
+        beep_sound()
+        car.Car_Stop()  # 차를 멈춥니다.
+        time.sleep(0.1)
+
+def detect_stop_sign(frame, control_signals, event):
+    if stop_cascade.empty():
+        print("Sign cascade not loaded.")
+        return
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    for (x, y, w, h) in signs:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+    control_signals['stop'] = len(signs) > 0
+    event.set()
+
 def beep_sound():
     GPIO.setwarnings(False)
     GPIO.setmode(GPIO.BOARD)
@@ -126,50 +173,7 @@ def beep_sound():
     p.stop()
     GPIO.cleanup()
 
-def detect_no_drive_bottom(frame, control_signals, event):
-    if no_drive_bottom_cascade.empty():
-        print("No drive bottom cascade not loaded.")
-        return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    no_drive_bottom = no_drive_bottom_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    for (x, y, w, h) in no_drive_bottom:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
-    control_signals['no_drive_bottom'] = len(no_drive_bottom) > 0
-    if control_signals['no_drive_bottom']:
-        rotate_servo(car, 2, 85)  # 서보 모터 2를 85도로 회전하여 카메라 각도 조절
-        time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
-        ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
-        detect_no_drive_top(new_frame, control_signals)
-    event.set()
 
-def detect_no_drive_top(frame, control_signals):
-    if no_drive_top_cascade.empty():
-        print("No drive top cascade not loaded.")
-        return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    no_drive_top = no_drive_top_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    for (x, y, w, h) in no_drive_top:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
-    control_signals['no_drive_top'] = len(no_drive_top) > 0
-    if control_signals['no_drive_top']:
-        beep_sound()
-        car.Car_Stop()  # 차를 멈춥니다.
-    else:
-        control_signals['no_drive_bottom'] = False
-
-def detect_stop_sign(frame, control_signals, event):
-    if stop_cascade.empty():
-        print("Stop cascade not loaded.")
-        return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-    stop_signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    for (x, y, w, h) in stop_signs:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-    control_signals['stop'] = len(stop_signs) > 0
-    if control_signals['stop']:
-        car.Car_Stop()  # 차를 멈춥니다.
-    event.set()
-    
 control_signals = {'no_drive_bottom': False, 'no_drive_top': False, 'stop': False}
 
 try:
@@ -210,27 +214,41 @@ try:
         print(f"Histogram: {histogram}")
         direction = decide_direction(histogram, direction_threshold)
         print(f"#### Decided direction ####: {direction}")
+        control_car(direction, motor_up_speed, motor_down_speed)
 
-        # 표지판 감지
-        
-        no_drive_bottom_event = threading.Event()
+        # Display the processed frame (for debugging)
+        cv2.imshow('4_Processed Frame', processed_frame)
+
+        # Events for thread completion
+        obstacle_event = threading.Event()
         stop_sign_event = threading.Event()
 
-        detect_no_drive_bottom_thread = threading.Thread(target=detect_no_drive_bottom, args=(frame, control_signals, no_drive_bottom_event))
-        detect_stop_sign_thread = threading.Thread(target=detect_stop_sign, args=(frame, control_signals, stop_sign_event))
+        # Create and start threads for detection tasks
+        detect_obstacle_thread = threading.Thread(target=detect_obstacle, args=(frame, control_signals, obstacle_event))
+        stop_sign_thread = threading.Thread(target=detect_stop_sign, args=(frame, control_signals, stop_sign_event))
 
-        detect_no_drive_bottom_thread.start()
-        detect_stop_sign_thread.start()
+        detect_obstacle_thread.start()
+        stop_sign_thread.start()
 
-        no_drive_bottom_event.wait()
+        # Wait for threads to signal completion
+        obstacle_event.wait()
         stop_sign_event.wait()
 
-        if control_signals['no_drive_bottom'] or control_signals['no_drive_top'] or control_signals['stop']:
-            print("Sign detected! Stopping...")
+        # Autonomous driving logic based on detections
+        if control_signals['obstacle']:
+            print("Obstacle detected! Avoiding...")
+            rotate_servo(car, 2, 85)  # 서보모터 위로 올리기
+            time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
+        if control_signals['stop']:
+            print("Stop sign detected! Stopping...")
             car.Car_Stop()
-        else:
-            print("No sign detected. Continuing autonomous driving.")
-            control_car(direction, motor_up_speed, motor_down_speed)
+            time.sleep(3)  # 3초 동안 정지
+        elif control_signals['no_drive']:
+            print("No drive sign detected! Stopping...")
+            car.Car_Stop()  # 완전히 멈춤
+
+        # 서보모터 하단으로 위치 변경
+        rotate_servo(car, 2, 75)
 
         key = cv2.waitKey(30) & 0xff
         if key == 27:  # press 'ESC' to quit

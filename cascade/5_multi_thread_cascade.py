@@ -43,10 +43,14 @@ def control_vehicle(control_signals):
         pass
     elif control_signals['stop_sign']:
         # 정지 표지판에서 정지
-        time.sleep(3)  # 3초간 정지
+        time.sleep(1)  # 1초간 정지
     else:
         # 직진
         pass
+    
+    control_signals['obstacle'] = False
+    control_signals['red_light'] = False
+    control_signals['stop_sign'] = False
 
 # 메인 루프
 while True:
@@ -73,6 +77,8 @@ while True:
     sign_thread.join()
 
     control_vehicle(control_signals)
+    
+    
 
     cv2.imshow('Frame', original_frame)
 

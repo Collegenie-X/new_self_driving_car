@@ -23,16 +23,21 @@ cv2.namedWindow('Camera Settings')
 # 트랙바 생성
 cv2.createTrackbar('Servo 1 Angle', 'Camera Settings', 90, 180, nothing)
 cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
+
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
+
 cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
 cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
 cv2.createTrackbar('Detect Value', 'Camera Settings', 15, 150, nothing)
+
 cv2.createTrackbar('Motor Up Speed', 'Camera Settings', 90, 125, nothing)
 cv2.createTrackbar('Motor Down Speed', 'Camera Settings', 50, 125, nothing)
+
 cv2.createTrackbar('R_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('G_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
+
 cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
@@ -48,9 +53,9 @@ no_drive_cascade = cv2.CascadeClassifier(no_drive_cascade_path)
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
     # 가중치를 0-1 범위로 변환
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= r_weight + g_weight + b_weight
+    g_weight /= r_weight + g_weight + b_weight
+    b_weight /= r_weight + g_weight + b_weight
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
 
 def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
@@ -120,7 +125,7 @@ def detect_obstacle(frame, control_signals, event):
     if obstacle_cascade.empty():
         print("Obstacle cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     obstacles = obstacle_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in obstacles:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
@@ -129,14 +134,14 @@ def detect_obstacle(frame, control_signals, event):
         rotate_servo(car, 2, 85)  # 서보 모터 2를 85도로 회전하여 카메라 각도 조절
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
-        detect_no_drive_sign(new_frame, control_signals)
+        no_drive_sign(new_frame, control_signals)
     event.set()
 
-def detect_no_drive_sign(frame, control_signals):
+def no_drive_sign(frame, control_signals):
     if no_drive_cascade.empty():
         print("No drive cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray =  weighted_gray(frame, r_weight, g_weight, b_weight)
     no_drive_cascade = no_drive_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in no_drive_cascade:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
@@ -146,16 +151,6 @@ def detect_no_drive_sign(frame, control_signals):
         beep_sound()
         car.Car_Stop()  # 차를 멈춥니다.
         time.sleep(0.1)
-
-def beep_sound():
-    GPIO.setwarnings(False)
-    GPIO.setmode(GPIO.BOARD)
-    GPIO.setup(32, GPIO.OUT)
-    p = GPIO.PWM(32, 440)
-    p.start(50)
-    time.sleep(0.5)
-    p.stop()
-    GPIO.cleanup()
 
 def stop_sign(frame, control_signals, event):
     if stop_cascade.empty():
@@ -167,6 +162,18 @@ def stop_sign(frame, control_signals, event):
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
     control_signals['stop'] = len(signs) > 0
     event.set()
+
+def beep_sound():
+    GPIO.setwarnings(False)
+    GPIO.setmode(GPIO.BOARD)
+    GPIO.setup(32, GPIO.OUT)
+    p = GPIO.PWM(32, 440)
+    p.start(50)
+    time.sleep(0.5)
+    p.stop()
+    GPIO.cleanup()
+
+
     
 control_signals = {'no_drive_bottom': False, 'no_drive_top': False, 'stop': False}
 
@@ -215,7 +222,6 @@ try:
 
         # Events for thread completion
         obstacle_event = threading.Event()
-        no_drive_event = threading.Event()
         stop_sign_event = threading.Event()
 
         # Create and start threads for detection tasks

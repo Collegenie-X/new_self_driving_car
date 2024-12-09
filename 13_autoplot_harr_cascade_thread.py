@@ -23,7 +23,9 @@ cv2.namedWindow('Camera Settings')
 # 트랙바 생성
 cv2.createTrackbar('Servo 1 Angle', 'Camera Settings', 90, 180, nothing)
 cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
+
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
+
 cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
 cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
@@ -69,11 +71,11 @@ def detect_no_drive_bottom(frame, control_signals):
         rotate_servo(car, 2, 85)  # 서보 모터 2를 85도로 회전하여 카메라 각도 조절
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
-        detect_no_drive_top(new_frame, control_signals)
+        no_drive_top(new_frame, control_signals)
     else :
         control_signals['no_drive_bottom'] = False  # 상단 표지��이 없으면 하단 표지��도 없는 것으로 간주
 
-def detect_no_drive_top(frame, control_signals):
+def no_drive_top(frame, control_signals):
     if no_drive_top_cascade.empty():
         print("No drive top cascade not loaded.")
         return
@@ -200,8 +202,7 @@ try:
         time.sleep(0.5)
 
         if control_signals['no_drive_bottom'] or control_signals['no_drive_top'] or control_signals['stop']:
-            print("Sign detected! Stopping...")
-            car.Car_Stop()
+            print("Sign detected! Stopping...")                
         else:
             print("No sign detected. Continuing autonomous driving.")
             control_car(direction, motor_up_speed, motor_down_speed)
