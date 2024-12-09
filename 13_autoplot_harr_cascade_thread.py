@@ -64,7 +64,7 @@ def detect_no_drive_bottom(frame, control_signals):
     if no_drive_bottom_cascade.empty():
         print("No drive bottom cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     no_drive_bottom = no_drive_bottom_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     control_signals['no_drive_bottom'] = len(no_drive_bottom) > 0
     if control_signals['no_drive_bottom']:
@@ -79,7 +79,7 @@ def no_drive_top(frame, control_signals):
     if no_drive_top_cascade.empty():
         print("No drive top cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     no_drive_top = no_drive_top_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     control_signals['no_drive_top'] = len(no_drive_top) > 0
     if control_signals['no_drive_top']:        
@@ -93,7 +93,7 @@ def detect_stop_sign(frame, control_signals):
     if stop_cascade.empty():
         print("Stop cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     stop_signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     control_signals['stop'] = len(stop_signs) > 0
     if control_signals['stop']:
@@ -104,9 +104,10 @@ def detect_stop_sign(frame, control_signals):
 
 # 자율 주행을 위한 프레임 처리 및 제어 함수
 def weighted_gray(image, r_weight, g_weight, b_weight):
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= r_weight+g_weight + b_weight
+    g_weight /= r_weight+g_weight + b_weight
+    b_weight /= r_weight+g_weight + b_weight
+    
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
 
 def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):

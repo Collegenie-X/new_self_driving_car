@@ -146,17 +146,13 @@ def no_drive_sign(frame, control_signals):
     for (x, y, w, h) in no_drive_cascade:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
     control_signals['no_drive'] = len(no_drive_cascade) > 0
-    if control_signals['no_drive']:
-        rotate_servo(car, 2, 75)
-        beep_sound()
-        car.Car_Stop()  # 차를 멈춥니다.
-        time.sleep(0.1)
+
 
 def stop_sign(frame, control_signals, event):
     if stop_cascade.empty():
         print("Sign cascade not loaded.")
         return
-    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in signs:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
@@ -238,10 +234,13 @@ try:
         # Autonomous driving logic based on detections
         if control_signals['obstacle']:
             print("Obstacle detected! Avoiding...")
-            # 장애물 회피 동작은 이미 detect_obstacle 함수에서 처리됨
         elif control_signals['no_drive']:
             print("No drive sign detected! Stopping...")
-            car.Car_Stop()  # 차를 멈춥니다.
+            rotate_servo(car, 2, 75)
+            time.sleep(0.8)
+            beep_sound()
+            car.Car_Stop()  # 차를 멈춥니다.            
+                        
         elif control_signals['stop']:
             print("Stop sign detected! Stopping...")
             car.Car_Stop()  # Implement your parking strategy
