@@ -40,10 +40,12 @@ def rotate_servo(car, servo_id, angle):
     car.Ctrl_Servo(servo_id, angle)
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
+    sum_weight = r_weight + g_weight + b_weight
+
     # 가중치를 0-1 범위로 변환
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= sum_weight
+    g_weight /= sum_weight
+    b_weight /= sum_weight
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
 
 while True:

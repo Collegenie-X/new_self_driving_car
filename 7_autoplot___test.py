@@ -130,7 +130,7 @@ def rotate_servo_and_check_direction(car, detect_value, r_weight, g_weight, b_we
     """
     
     # 180도 서보모터 동작
-    car.Ctrl_Servo(1, 180)
+    car.Ctrl_Servo(1, 120)
     time.sleep(0.5)
     
     # 이미지 송출 
@@ -151,15 +151,16 @@ def rotate_servo_and_check_direction(car, detect_value, r_weight, g_weight, b_we
     
     
     car.Ctrl_Servo(1, 90)
-    time.sleep(0.5)
+    time.sleep(1)    
 
     if (center > 100000):
         car.Car_Left(60, 100)
         
     else:
         car.Car_Right(100, 60)
-        
-    time.sleep(1)    
+    
+    time.sleep(0.5)       
+    
     return "UP"
 
 

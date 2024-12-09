@@ -68,7 +68,7 @@ def weighted_gray(image, r_weight, g_weight, b_weight):
 
 def detect_object_sign(cascade, frame,r_weight,g_weight,b_weight):
     gray = weighted_gray(image=frame, r_weight=r_weight, g_weight=g_weight, b_weight=b_weight)
-    cv2.imshoe("1_Gray Image", gray)
+    cv2.imshow("1_Gray Image", gray)
     object_sign = cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5, minSize=(30, 30))
     return object_sign
 

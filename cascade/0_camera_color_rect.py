@@ -63,14 +63,15 @@ while True:
     mfps = fps / (time.time() - t_start)
 
     # Show the frame
-    cv2.imshow('frame', frame)
+    cv2.imshow('1___frame', frame)
+    
+    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    
+    cv2.imshow('2___gray', gray)
 
-    # Convert to LAB color space
-    lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2Lab)
-    l_channel, a_channel, b_channel = cv2.split(lab_frame)
-    cv2.imshow('lab_frame', b_channel)
-
+ 
     # Check for key presses
+    
     k = cv2.waitKey(30) & 0xff
     if k == 27:  # press 'ESC' to quit
         break
@@ -84,7 +85,7 @@ while True:
         timestamp = datetime.now().strftime("%Y_%m_%d_%H_%M_%S")
         filename = f"{path}/{folder_name}_{timestamp}.jpg"
         print(f"image:{filename} saved")
-        cv2.imwrite(filename, l_channel)
+        cv2.imwrite(filename, gray)
 
     time.sleep(0.2)
 

@@ -42,9 +42,9 @@ cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
 # Haar Cascade models 경로 설정
-obstacle_cascade_path = 'path_to_obstacle_cascade.xml'
-stop_cascade_path = 'path_to_traffic_light_cascade.xml'
-no_drive_cascade_path = 'path_to_sign_cascade.xml'
+obstacle_cascade_path = './xml/obstacle.xml'
+stop_cascade_path = './xml/stop.xml'
+no_drive_cascade_path = './xml/no_drive.xml'
 
 # Haar Cascade models 로드
 obstacle_cascade = cv2.CascadeClassifier(obstacle_cascade_path)
@@ -102,6 +102,13 @@ def decide_direction(histogram, direction_threshold):
         return "LEFT" if right > left else "RIGHT"
     else:
         return "UP"
+    
+def draw_rectangles_and_text(frame, traffic_sign,sign_name):
+    for (x, y, w, h) in traffic_sign:
+        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+        cv2.putText(frame, f"{sign_name}_({w}X{h})", (x - 30, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
+    return frame
+
 
 def control_car(direction, up_speed, down_speed):
     """
@@ -124,13 +131,14 @@ def rotate_servo(car, servo_id, angle):
 def detect_obstacle(frame, control_signals, event):
     if obstacle_cascade.empty():
         print("Obstacle cascade not loaded.")
-        return
+        raise ValueError("Obstacle cascade not loaded.")
     gray = weighted_gray(frame, r_weight, g_weight, b_weight)
     obstacles = obstacle_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
     for (x, y, w, h) in obstacles:
         cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 255, 0), 2)
     control_signals['obstacle'] = len(obstacles) > 0
     if control_signals['obstacle']:
+        draw_rectangles_and_text(frame,obstacles,"obstacles")
         rotate_servo(car, 2, 85)  # 서보 모터 2를 85도로 회전하여 카메라 각도 조절
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
@@ -140,23 +148,23 @@ def detect_obstacle(frame, control_signals, event):
 def no_drive_sign(frame, control_signals):
     if no_drive_cascade.empty():
         print("No drive cascade not loaded.")
-        return
+        raise ValueError("No drive cascade not loaded.")
     gray =  weighted_gray(frame, r_weight, g_weight, b_weight)
     no_drive_cascade = no_drive_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    for (x, y, w, h) in no_drive_cascade:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (0, 0, 255), 2)
     control_signals['no_drive'] = len(no_drive_cascade) > 0
+    if control_signals['no_drive'] :
+        draw_rectangles_and_text(frame,no_drive_cascade,"no_drive_cascade")
 
 
 def stop_sign(frame, control_signals, event):
     if stop_cascade.empty():
         print("Sign cascade not loaded.")
-        return
+        raise ValueError("Sign cascade not loaded.")
     gray = weighted_gray(frame, r_weight, g_weight, b_weight)
-    signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
-    for (x, y, w, h) in signs:
-        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
-    control_signals['stop'] = len(signs) > 0
+    stop_signs = stop_cascade.detectMultiScale(gray, scaleFactor=1.1, minNeighbors=5)
+    control_signals['stop'] = len(stop_signs) > 0
+    if control_signals['stop'] :
+        draw_rectangles_and_text(frame,stop_signs,"stop_signs")
     event.set()
 
 def beep_sound():
@@ -171,7 +179,7 @@ def beep_sound():
 
 
     
-control_signals = {'no_drive_bottom': False, 'no_drive_top': False, 'stop': False}
+control_signals = {'obstacle': False, 'no_drive': False, 'stop': False}
 
 try:
     while True:
