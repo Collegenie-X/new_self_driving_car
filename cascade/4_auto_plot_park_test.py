@@ -32,14 +32,26 @@ def detect_obstacle(frame, cascade):
 
     return False
 
+
+def weighted_gray(image, r_weight, g_weight, b_weight):
+    sum_weight = r_weight + g_weight + b_weight
+
+    # 가중치를 0-1 범위로 변환
+    r_weight /= sum_weight
+    g_weight /= sum_weight
+    b_weight /= sum_weight
+    return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
+
+
 # 주차 표지판 감지 및 표시
 def detect_and_display_sign(frame, cascade):
-    gray = cv2.cvtColor(frame, cv2.COLOR_RGB2GRAY)
+    gray = weighted_gray(image=frame, r_weight=33,g_weight=33,b_weight=34)
     traffic_sign = cascade.detectMultiScale(gray)
-    for (x, y, w, h) in traffic_sign:
-        cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
-        cv2.putText(frame, "Park OK(sign)", (x - 20, y + h + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255))
-    cv2.imshow("0.Park OK(sign)", frame)
+    if len(traffic_sign) > 0:
+        for (x, y, w, h) in traffic_sign:
+            cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
+            cv2.putText(frame, "Park OK(sign)", (x - 20, y + h + 10), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255))
+        cv2.imshow("0.Park OK(sign)", frame)
 
 # 주요 루프
 def main_loop(cap, car, traffic_cascade):

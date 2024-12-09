@@ -29,11 +29,19 @@ t_start = time.time()
 fps = 0
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
+    sum_weight = r_weight + g_weight + b_weight
+
     # 가중치를 0-1 범위로 변환
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= sum_weight
+    g_weight /= sum_weight
+    b_weight /= sum_weight
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
+
+def channel_frame (frame) : 
+    lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2Lab)
+    l_channel, a_channel, b_channel = cv2.split(lab_frame)
+    return l_channel, a_channel, b_channel
+
 
 while True:
     # 트랙바 값 읽기
@@ -57,17 +65,17 @@ while True:
     fps += 1
     mfps = fps / (time.time() - t_start)
 
-    # Show the frame
+    
     cv2.imshow('1 Step frame', frame)
 
-    # Apply custom weights to convert to gray
     gray_frame = weighted_gray(frame, r_weight, g_weight, b_weight)
     cv2.imshow('2 Step weighted_gray_frame', gray_frame)
 
-    # Convert to LAB color space
-    lab_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2Lab)
-    l_channel, a_channel, b_channel = cv2.split(lab_frame)
-    cv2.imshow('3 Step lab_frame', l_channel)
+        
+    # l_channel, a_channel, b_channel = channel_frame(frame)
+    # cv2.imshow('l_channel lab_frame', l_channel)
+    # cv2.imshow('a_channel lab_frame', a_channel)
+    # cv2.imshow('b_channel lab_frame', b_channel)
 
     # Check for key presses
     k = cv2.waitKey(30) & 0xff
@@ -83,7 +91,7 @@ while True:
         filename_lab = f"{path}/rect_lab_{timestamp}.jpg"
         print(f"images: {filename_gray} and {filename_lab} saved")
         cv2.imwrite(filename_gray, gray_frame)
-        cv2.imwrite(filename_lab, l_channel)
+        # cv2.imwrite(filename_lab, l_channel)
 
     time.sleep(0.2)
 
