@@ -8,7 +8,9 @@ import YB_Pcb_Car
 
 folder_name = "rect"
 
-
+cap = cv2.VideoCapture(0)
+cap.set(3, 320)  # Set Width
+cap.set(4, 240)  # Set Height
 
 car = YB_Pcb_Car.YB_Pcb_Car()
 # 트랙바 콜백 함수 (사용되지 않음)
@@ -33,9 +35,7 @@ cv2.createTrackbar('G_weight', 'Camera Settings', 33, 100, nothing)
 cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
 
 def initialize_camera(brightness,contrast,saturation,gain):
-    cap = cv2.VideoCapture(0)
-    cap.set(3, 320)  # Set Width
-    cap.set(4, 240)  # Set Height
+
     cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness)
     cap.set(cv2.CAP_PROP_CONTRAST, contrast)
     cap.set(cv2.CAP_PROP_SATURATION, saturation)

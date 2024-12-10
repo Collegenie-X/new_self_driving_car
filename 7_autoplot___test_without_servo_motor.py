@@ -76,7 +76,7 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     _, binary_frame = cv2.threshold(gray_frame, detect_value, 255, cv2.THRESH_BINARY)
     return binary_frame
 
-def decide_direction(histogram, direction_threshold,car,detect_value):
+def decide_direction(histogram, direction_threshold,up_threshold):
     """
     Decide the driving direction based on histogram.
     """
@@ -97,17 +97,11 @@ def decide_direction(histogram, direction_threshold,car,detect_value):
         return "LEFT" if right > left else "RIGHT"
     else:
         ### 라인 코너가 LEFT/RIGHT가 구별되지 않는 경우 (LEFT, RIGHT 선택 )
-        if (center > up_threshold) :   
-            
-            random_direction = random.randrange(1,7)
-            print ("######### ((( random_direction ))) ################## ")
-            
-            if (0< random_direction and random_direction< 4) :  ## 1,2,3일 때 LEFT
-                return "LEFT"
-            return "RIGHT"            
-            
+        print("center:", center,"--- up_threshold:", up_threshold , "RANDOM:", (center < up_threshold))
+        if (center > up_threshold) :               
+            return "UP"                     
         else : 
-            return "UP"
+            return "RANDOM" 
 
 
 def control_car(direction, up_speed, down_speed):
@@ -137,15 +131,21 @@ try:
         contrast = cv2.getTrackbarPos('Contrast', 'Camera Settings')
         saturation = cv2.getTrackbarPos('Saturation', 'Camera Settings')
         gain = cv2.getTrackbarPos('Gain', 'Camera Settings')
+        
         detect_value = cv2.getTrackbarPos('Detect Value', 'Camera Settings')
+        
         motor_up_speed = cv2.getTrackbarPos('Motor Up Speed', 'Camera Settings')
         motor_down_speed = cv2.getTrackbarPos('Motor Down Speed', 'Camera Settings')
+        
         r_weight = cv2.getTrackbarPos('R_weight', 'Camera Settings')
         g_weight = cv2.getTrackbarPos('G_weight', 'Camera Settings')
         b_weight = cv2.getTrackbarPos('B_weight', 'Camera Settings')
+        
         servo_1_angle = cv2.getTrackbarPos('Servo 1 Angle', 'Camera Settings')
         servo_2_angle = cv2.getTrackbarPos('Servo 2 Angle', 'Camera Settings')
+        
         y_value = cv2.getTrackbarPos('Y Value', 'Camera Settings')
+        
         direction_threshold = cv2.getTrackbarPos('Direction Threshold', 'Camera Settings')
         up_threshold = cv2.getTrackbarPos('Up Threshold', 'Camera Settings')
 
@@ -170,7 +170,8 @@ try:
         
         
         print(f"Histogram: {histogram}")
-        direction = decide_direction(histogram, direction_threshold,car,detect_value)
+        direction = decide_direction(histogram, direction_threshold,up_threshold)
+        
         print(f"#### Decided direction ####: {direction}")
         control_car(direction, motor_up_speed, motor_down_speed)
 

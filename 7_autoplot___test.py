@@ -46,10 +46,12 @@ cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
 
 
 def weighted_gray(image, r_weight, g_weight, b_weight):
+    
+    sum_weight = r_weight + g_weight + b_weight
     # 가중치를 0-1 범위로 변환
-    r_weight /= 100.0
-    g_weight /= 100.0
-    b_weight /= 100.0
+    r_weight /= sum_weight
+    g_weight /= sum_weight
+    b_weight /= sum_weight
     return cv2.addWeighted(cv2.addWeighted(image[:, :, 2], r_weight, image[:, :, 1], g_weight, 0), 1.0, image[:, :, 0], b_weight, 0)
 
 def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
@@ -166,20 +168,28 @@ def rotate_servo_and_check_direction(car, detect_value, r_weight, g_weight, b_we
 
 try:
     while True:
-        # 트랙바 값 읽기
+        # 트랙바 값 읽기        
+        servo_1_angle = cv2.getTrackbarPos('Servo 1 Angle', 'Camera Settings')
+        servo_2_angle = cv2.getTrackbarPos('Servo 2 Angle', 'Camera Settings')
+        
         brightness = cv2.getTrackbarPos('Brightness', 'Camera Settings')
         contrast = cv2.getTrackbarPos('Contrast', 'Camera Settings')
         saturation = cv2.getTrackbarPos('Saturation', 'Camera Settings')
         gain = cv2.getTrackbarPos('Gain', 'Camera Settings')
+        
         detect_value = cv2.getTrackbarPos('Detect Value', 'Camera Settings')
+        
         motor_up_speed = cv2.getTrackbarPos('Motor Up Speed', 'Camera Settings')
         motor_down_speed = cv2.getTrackbarPos('Motor Down Speed', 'Camera Settings')
+        
         r_weight = cv2.getTrackbarPos('R_weight', 'Camera Settings')
         g_weight = cv2.getTrackbarPos('G_weight', 'Camera Settings')
         b_weight = cv2.getTrackbarPos('B_weight', 'Camera Settings')
-        servo_1_angle = cv2.getTrackbarPos('Servo 1 Angle', 'Camera Settings')
-        servo_2_angle = cv2.getTrackbarPos('Servo 2 Angle', 'Camera Settings')
+        
+        
+        
         y_value = cv2.getTrackbarPos('Y Value', 'Camera Settings')
+        
         direction_threshold = cv2.getTrackbarPos('Direction Threshold', 'Camera Settings')
         up_threshold = cv2.getTrackbarPos('Up Threshold', 'Camera Settings')
 

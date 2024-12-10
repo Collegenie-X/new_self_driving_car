@@ -27,8 +27,11 @@ cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
 
 cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
+cv2.createTrackbar('Up Threshold', 'Camera Settings', 50000, 300000, nothing)
+
 cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
+
 cv2.createTrackbar('Detect Value', 'Camera Settings', 15, 150, nothing)
 
 cv2.createTrackbar('Motor Up Speed', 'Camera Settings', 90, 125, nothing)
@@ -40,6 +43,9 @@ cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
 
 cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
+
+
+
 
 # Haar Cascade models 경로 설정
 obstacle_cascade_path = './xml/obstacle.xml'
@@ -82,7 +88,7 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     _, binary_frame = cv2.threshold(gray_frame, detect_value, 255, cv2.THRESH_BINARY)
     return binary_frame
 
-def decide_direction(histogram, direction_threshold):
+def decide_direction(histogram, direction_threshold, up_threshold):
     """
     Decide the driving direction based on histogram.
     """
@@ -92,6 +98,7 @@ def decide_direction(histogram, direction_threshold):
     # 히스토그램을 세 구역으로 나눔
     left = int(np.sum(histogram[:length // 5]))
     right = int(np.sum(histogram[4 * length // 5:]))
+    center = int(np.sum(histogram[2*length//5:4*length // 5]))
 
     print("left:", left)
     print("right:", right)
@@ -101,7 +108,13 @@ def decide_direction(histogram, direction_threshold):
     if abs(right - left) > direction_threshold:
         return "LEFT" if right > left else "RIGHT"
     else:
-        return "UP"
+        ### 라인 코너가 LEFT/RIGHT가 구별되지 않는 경우 (LEFT, RIGHT 선택 )
+        print("center:", center,"--- up_threshold:", up_threshold , "RANDOM:", (center < up_threshold))
+
+        if (center > up_threshold) :               
+            return "UP"            
+                
+        return "RANDOM"
     
 def draw_rectangles_and_text(frame, traffic_sign,sign_name):
     for (x, y, w, h) in traffic_sign:
@@ -143,6 +156,8 @@ def detect_obstacle(frame, control_signals, event):
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
         no_drive_sign(new_frame, control_signals)
+        rotate_servo(car, 2, 75)
+        time.sleep(1)
     event.set()
 
 def no_drive_sign(frame, control_signals):
@@ -188,16 +203,23 @@ try:
         contrast = cv2.getTrackbarPos('Contrast', 'Camera Settings')
         saturation = cv2.getTrackbarPos('Saturation', 'Camera Settings')
         gain = cv2.getTrackbarPos('Gain', 'Camera Settings')
+        
         detect_value = cv2.getTrackbarPos('Detect Value', 'Camera Settings')
+        
         motor_up_speed = cv2.getTrackbarPos('Motor Up Speed', 'Camera Settings')
         motor_down_speed = cv2.getTrackbarPos('Motor Down Speed', 'Camera Settings')
+        
         r_weight = cv2.getTrackbarPos('R_weight', 'Camera Settings')
         g_weight = cv2.getTrackbarPos('G_weight', 'Camera Settings')
         b_weight = cv2.getTrackbarPos('B_weight', 'Camera Settings')
+        
         servo_1_angle = cv2.getTrackbarPos('Servo 1 Angle', 'Camera Settings')
         servo_2_angle = cv2.getTrackbarPos('Servo 2 Angle', 'Camera Settings')
+        
         y_value = cv2.getTrackbarPos('Y Value', 'Camera Settings')
+        
         direction_threshold = cv2.getTrackbarPos('Direction Threshold', 'Camera Settings')
+        up_threshold = cv2.getTrackbarPos('Up Threshold', 'Camera Settings')
 
         # 카메라 속성 설정
         cap.set(cv2.CAP_PROP_BRIGHTNESS, brightness)
@@ -217,7 +239,7 @@ try:
         processed_frame = process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value)
         histogram = np.sum(processed_frame, axis=0)
         print(f"Histogram: {histogram}")
-        direction = decide_direction(histogram, direction_threshold)
+        direction = decide_direction(histogram, direction_threshold, up_threshold)
         print(f"#### Decided direction ####: {direction}")
         control_car(direction, motor_up_speed, motor_down_speed)
 
@@ -244,8 +266,7 @@ try:
             print("Obstacle detected! Avoiding...")
         elif control_signals['no_drive']:
             print("No drive sign detected! Stopping...")
-            rotate_servo(car, 2, 75)
-            time.sleep(0.8)
+        
             beep_sound()
             car.Car_Stop()  # 차를 멈춥니다.            
                         
