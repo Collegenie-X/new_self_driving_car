@@ -1,19 +1,20 @@
 
+# 참고 코드 예시    (autoplot_print.py) 
+
 import random
 import time
 
 # 충돌 여부 체크 함수
-def check_collision(collisions): 
-    
+def check_collision(collisions):     
     pass
     return collisions
 
 
-# 차량 방향 결정 함수 (랜덤으로 직진, 좌회전, 우회전 중 선택하여 모터 동작)
+# 차량 방향 결정 함수 (랜덤으로 직진, 좌회전, 우회전 중 선택)
 def decide_direction(direction):
     pass
 
-# 표지판 인식 함수 (랜덤으로 정지, 위험, 정상 중 하나 선택하여 미션 수행)
+# 표지판 인식 함수 (랜덤으로 정지, 위험, 정상 중 하나 선택)
 def recognize_sign(sign):
     pass 
 
@@ -25,8 +26,8 @@ def print_current_status(direction, sign, collisions):
 
 # 차량 주행을 시작하는 함수
 def car_mission():
-    directions = ["up", "left", "right"]  # 차량의 가능한 방향
-    signs = ["stop", "danger", "no_sign"]  # 표지판 종류
+    directions = ["up", "left", "right","random"]  # 차량의 가능한 방향
+    signs = ["stop", "danger", "no_sign", "o_sign"]  # 표지판 종류
     collisions = 0  # 충돌 횟수 초기화
 
     print("자율주행차 미션 시작!\n")
@@ -62,8 +63,3 @@ def car_mission():
 
 # 자율주행차 게임 시작
 car_mission()
-
-
-
-
-
