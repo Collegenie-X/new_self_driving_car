@@ -26,10 +26,10 @@ cv2.createTrackbar('Servo 2 Angle', 'Camera Settings', 113, 180, nothing)
 
 cv2.createTrackbar('Y Value', 'Camera Settings', 10, 160, nothing)
 
-cv2.createTrackbar('Direction Threshold', 'Camera Settings', 50000, 300000, nothing)
+cv2.createTrackbar('Direction Threshold', 'Camera Settings', 264103, 300000, nothing)
 cv2.createTrackbar('Up Threshold', 'Camera Settings', 50000, 300000, nothing)
 
-cv2.createTrackbar('Brightness', 'Camera Settings', 65, 100, nothing)
+cv2.createTrackbar('Brightness', 'Camera Settings', 69, 100, nothing)
 cv2.createTrackbar('Contrast', 'Camera Settings', 80, 100, nothing)
 
 cv2.createTrackbar('Detect Value', 'Camera Settings', 15, 150, nothing)
@@ -43,9 +43,6 @@ cv2.createTrackbar('B_weight', 'Camera Settings', 33, 100, nothing)
 
 cv2.createTrackbar('Saturation', 'Camera Settings', 20, 100, nothing)
 cv2.createTrackbar('Gain', 'Camera Settings', 20, 100, nothing)
-
-
-
 
 # Haar Cascade models 경로 설정
 obstacle_cascade_path = './xml/obstacle.xml'
@@ -88,33 +85,37 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     _, binary_frame = cv2.threshold(gray_frame, detect_value, 255, cv2.THRESH_BINARY)
     return binary_frame
 
-def decide_direction(histogram, direction_threshold, up_threshold):
+def decide_direction(histogram, direction_threshold,up_threshold):
     """
     Decide the driving direction based on histogram.
     """
     # 히스토그램의 길이
     length = len(histogram)
 
-    # 히스토그램을 세 구역으로 나눔
-    left = int(np.sum(histogram[:length // 5]))
-    right = int(np.sum(histogram[4 * length // 5:]))
-    center = int(np.sum(histogram[2*length//5:4*length // 5]))
+    # 히스토그램을 세 구역으로 나눔 (5등분하여 left,right,center의 코너 값)
+    DIVIDE_DIRECTION = 6
+    
+    left = int(np.sum(histogram[:length // DIVIDE_DIRECTION]))     
+    right = int(np.sum(histogram[DIVIDE_DIRECTION-1 * length // DIVIDE_DIRECTION:]))
+    center_left = int(np.sum(histogram[1*length//DIVIDE_DIRECTION : 3*length // DIVIDE_DIRECTION]))
+    center_right= int(np.sum(histogram[3*length//DIVIDE_DIRECTION : 5*length // DIVIDE_DIRECTION]))
 
     print("left:", left)
     print("right:", right)
     print("right - left:", right - left)
 
-    # 방향 결정
+    # 방향 결정 right-left 절대값에 따른 Left , right 결정
     if abs(right - left) > direction_threshold:
         return "LEFT" if right > left else "RIGHT"
-    else:
-        ### 라인 코너가 LEFT/RIGHT가 구별되지 않는 경우 (LEFT, RIGHT 선택 )
-        print("center:", center,"--- up_threshold:", up_threshold , "RANDOM:", (center < up_threshold))
-
-        if (center > up_threshold) :               
-            return "UP"            
-                
-        return "RANDOM"
+    
+    center = abs(center_left - center_right)
+    
+    ### 라인 코너가 LEFT/RIGHT가 구별되지 않는 경우 (LEFT, RIGHT 선택 )
+    print("center:", center,"--- up_threshold:", up_threshold , "RANDOM:", (center < up_threshold))
+    if (center > up_threshold) :               
+        return "UP"                     
+    
+    return "RANDOM" 
     
 def draw_rectangles_and_text(frame, traffic_sign,sign_name):
     for (x, y, w, h) in traffic_sign:
@@ -156,8 +157,6 @@ def detect_obstacle(frame, control_signals, event):
         time.sleep(1)  # 서보 모터가 회전할 시간을 줍니다.
         ret, new_frame = cap.read()  # 카메라로부터 새로운 프레임을 받아옵니다.
         no_drive_sign(new_frame, control_signals)
-        rotate_servo(car, 2, 75)
-        time.sleep(1)
     event.set()
 
 def no_drive_sign(frame, control_signals):
@@ -239,7 +238,7 @@ try:
         processed_frame = process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value)
         histogram = np.sum(processed_frame, axis=0)
         print(f"Histogram: {histogram}")
-        direction = decide_direction(histogram, direction_threshold, up_threshold)
+        direction = decide_direction(histogram, direction_threshold,up_threshold)
         print(f"#### Decided direction ####: {direction}")
         control_car(direction, motor_up_speed, motor_down_speed)
 
@@ -266,7 +265,8 @@ try:
             print("Obstacle detected! Avoiding...")
         elif control_signals['no_drive']:
             print("No drive sign detected! Stopping...")
-        
+            rotate_servo(car, 2, 75)
+            time.sleep(0.8)
             beep_sound()
             car.Car_Stop()  # 차를 멈춥니다.            
                         
