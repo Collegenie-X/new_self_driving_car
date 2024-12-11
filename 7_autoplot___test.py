@@ -85,12 +85,18 @@ def process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value):
     # Apply perspective transformation
     mat_affine = cv2.getPerspectiveTransform(pts_src, pts_dst)
     frame_transformed = cv2.warpPerspective(frame, mat_affine, (320, 240))
-    # cv2.imshow('2_frame_transformed', frame_transformed)
+    cv2.imshow('2_frame_transformed', frame_transformed)
 
     # Convert to grayscale using weighted gray
     gray_frame = weighted_gray(frame_transformed, r_weight, g_weight, b_weight)
-    # cv2.imshow('3_gray_frame', gray_frame)
+    cv2.imshow('3_gray_frame', gray_frame)
     _, binary_frame = cv2.threshold(gray_frame, detect_value, 255, cv2.THRESH_BINARY)
+    
+    # 노이즈 제거
+    kernel = np.ones((5,5), np.uint8)
+    binary_frame = cv2.morphologyEx(binary_frame, cv2.MORPH_CLOSE, kernel)
+    binary_frame = cv2.morphologyEx(binary_frame, cv2.MORPH_OPEN, kernel)
+
     
     # Display the processed frame (for debugging)
     cv2.imshow('4_Processed Frame', binary_frame)
@@ -136,8 +142,9 @@ def rotate_servo_and_check_direction(car):
     """
     
     # 180도 서보모터 동작
-    car.Ctrl_Servo(1, 180)
-    time.sleep(1)
+    car.Ctrl_Servo(1, 180)   
+    car.Ctrl_Servo(2, 100)    
+    time.sleep(0.5)
     
     
     # 이미지 송출 
@@ -150,26 +157,32 @@ def rotate_servo_and_check_direction(car):
     processed_frame = process_frame(frame, detect_value, r_weight, g_weight, b_weight, y_value)    
     
     
-    # 180 Rect (3/5 : 4/5) center 값 가지고 오기
     histogram_180 = np.sum(processed_frame, axis=0)
     length = len(histogram_180)
-    center = int(np.sum(histogram[3*length//6: 4*length // 6]))
+    
+    
+    left = int(np.sum(histogram[:length // 3]))
+    center = int(np.sum(histogram[length // 3: 2 * length // 3]))
+    right = int(np.sum(histogram[2 * length // 3:]))
     
     
     
-    car.Ctrl_Servo(1, servo_2_angle)    
+    car.Ctrl_Servo(1, servo_1_angle) 
+    car.Ctrl_Servo(2, servo_2_angle) 
     print(histogram_180)
     print("length: ", len(histogram_180))
     print("################## histogram_180:",center ,"--- up:", up_threshold ,"is LEFT:",center > up_threshold)
-    time.sleep(1)
+    time.sleep(0.5)
 
 
-    if (center > 1000):
+    #### center 부분만 체크함 center 부분이 1의 분포도가 가장 적다는 것은 길이 막혀 있지 않다는 부분입니다. 
+
+    if (left > center and right > center):
         print("########### LEFT #############")
-        return "LEFT"
+        return "RIGHT"
                 
     print("########### RIGHT #############")
-    return "RIGHT"
+    return "LEFT"
         
         
 
