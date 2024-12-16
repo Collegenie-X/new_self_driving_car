@@ -121,7 +121,7 @@ def draw_rectangles_and_text(frame, traffic_sign,sign_name):
     for (x, y, w, h) in traffic_sign:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
         cv2.putText(frame, f"{sign_name}_({w}X{h})", (x - 30, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
-    return frame
+        cv2.imshow(f"{sign_name}:", frame)
 
 
 def control_car(direction, up_speed, down_speed):
