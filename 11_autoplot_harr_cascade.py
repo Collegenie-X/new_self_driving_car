@@ -117,8 +117,8 @@ def decide_direction(histogram, direction_threshold,up_threshold):
     
     return "RANDOM" 
     
-def draw_rectangles_and_text(frame, traffic_sign,sign_name):
-    for (x, y, w, h) in traffic_sign:
+def draw_rectangles_and_text(frame, rect_sign,sign_name):
+    for (x, y, w, h) in rect_sign:
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 255, 0), 3)
         cv2.putText(frame, f"{sign_name}_({w}X{h})", (x - 30, y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
         cv2.imshow(f"{sign_name}:", frame)
